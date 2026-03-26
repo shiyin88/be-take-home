@@ -38,4 +38,16 @@ class GlobalExceptionHandler {
         ResponseEntity.badRequest().body(
             ErrorResponse(400, "Bad Request", ex.message ?: "Invalid request")
         )
+
+    @ExceptionHandler(PaymentFailedException::class)
+    fun handlePaymentFailed(ex: PaymentFailedException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+            ErrorResponse(502, "Bad Gateway", ex.message ?: "Payment service error")
+        )
+
+    @ExceptionHandler(IllegalStateException::class)
+    fun handleIllegalState(ex: IllegalStateException): ResponseEntity<ErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ErrorResponse(409, "Conflict", ex.message ?: "Request conflicts with current state")
+        )
 }

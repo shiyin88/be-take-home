@@ -99,3 +99,51 @@ data class PaymentResponse(
         )
     }
 }
+
+data class SavedCardResponse(
+    val id: Long,
+    val last4: String,
+    val brand: String,
+    val expMonth: Int,
+    val expYear: Int,
+    val createdAt: Instant,
+) {
+    companion object {
+        fun from(card: SavedCard) = SavedCardResponse(
+            id = card.id,
+            last4 = card.last4,
+            brand = card.brand,
+            expMonth = card.expMonth,
+            expYear = card.expYear,
+            createdAt = card.createdAt,
+        )
+    }
+}
+
+data class SetupIntentResponse(val clientSecret: String)
+
+data class CreditCardPaymentResponse(
+    val id: Long,
+    val rentChargeId: Long,
+    val savedCardId: Long,
+    val stripePaymentIntentId: String,
+    val amount: BigDecimal,
+    val status: CreditCardPaymentStatus,
+    val failureReason: String?,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+) {
+    companion object {
+        fun from(p: CreditCardPayment) = CreditCardPaymentResponse(
+            id = p.id,
+            rentChargeId = p.rentChargeId,
+            savedCardId = p.savedCardId,
+            stripePaymentIntentId = p.stripePaymentIntentId,
+            amount = p.amount,
+            status = p.status,
+            failureReason = p.failureReason,
+            createdAt = p.createdAt,
+            updatedAt = p.updatedAt,
+        )
+    }
+}
