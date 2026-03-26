@@ -39,13 +39,17 @@ class CardDataAccess(private val dsl: DSLContext) {
     fun findCardsByTenantIdCursor(tenantId: Long, startAfterId: Long?, limit: Int): List<SavedCard> =
         dsl.selectFrom(SAVED_CARDS)
             .where(SAVED_CARDS.TENANT_ID.eq(tenantId))
-            .and(if (startAfterId != null) SAVED_CARDS.ID.gt(startAfterId) else DSL.noCondition())
+            .and(cardCursorCondition(startAfterId))
             .orderBy(SAVED_CARDS.ID)
             .limit(limit)
             .fetch()
             .map { it.toModel() }
 
+    private fun cardCursorCondition(startAfterId: Long?) =
+        if (startAfterId != null) SAVED_CARDS.ID.gt(startAfterId) else DSL.noCondition()
+
     fun saveCard(card: SavedCard): SavedCard {
+        check(card.id == 0L) { "saveCard called with non-zero id: ${card.id}" }
         val record = dsl.newRecord(SAVED_CARDS).apply {
             tenantId = card.tenantId
             stripePaymentMethodId = card.stripePaymentMethodId
