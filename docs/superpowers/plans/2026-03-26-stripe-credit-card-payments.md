@@ -842,7 +842,6 @@ class CardModule(
         dataAccess.deleteCard(cardId)
     }
 
-    /** Returns existing stripeCustomerId or creates one and persists it. */
     /** Returns a saved card by ID, or throws ResourceNotFoundException. */
     fun getCardById(cardId: Long): SavedCard =
         dataAccess.findCardById(cardId)
@@ -1505,8 +1504,6 @@ class CreditCardPaymentModuleTest {
     }
 }
 ```
-
-Note: `dataAccess.findStripeCustomerByTenantId` is called from `CardDataAccess`, not this module. The module calls `cardModule` to get the card, and it needs a `getStripeCustomerIdForTenant` call. Let me adjust — see Step 3 for the actual implementation shape.
 
 - [ ] **Step 2: Add `updateChargeStatus` to LedgerModule and `creditCardPayment()` to TestFixtures**
 
