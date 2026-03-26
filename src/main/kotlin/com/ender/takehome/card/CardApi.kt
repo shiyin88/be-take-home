@@ -17,16 +17,16 @@ class CardApi(private val cardModule: CardModule) {
     @PostMapping("/setup-intent")
     @PreAuthorize("hasRole('TENANT')")
     fun createSetupIntent(): SetupIntentResponse {
-        val principal = UserPrincipal.current()
-        return SetupIntentResponse(cardModule.createSetupIntent(principal.tenantId!!))
+        val tenantId = UserPrincipal.current().requireTenantId()
+        return SetupIntentResponse(cardModule.createSetupIntent(tenantId))
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('TENANT')")
     fun saveCard(@Valid @RequestBody request: SaveCardRequest): SavedCardResponse {
-        val principal = UserPrincipal.current()
-        return SavedCardResponse.from(cardModule.saveCard(principal.tenantId!!, request.stripePaymentMethodId))
+        val tenantId = UserPrincipal.current().requireTenantId()
+        return SavedCardResponse.from(cardModule.saveCard(tenantId, request.stripePaymentMethodId))
     }
 
     @GetMapping
@@ -35,8 +35,8 @@ class CardApi(private val cardModule: CardModule) {
         @RequestParam(required = false) startAfterId: Long?,
         @RequestParam(defaultValue = "20") limit: Int,
     ): CursorPage<SavedCardResponse> {
-        val principal = UserPrincipal.current()
-        val page = cardModule.listCards(principal.tenantId!!, startAfterId, limit)
+        val tenantId = UserPrincipal.current().requireTenantId()
+        val page = cardModule.listCards(tenantId, startAfterId, limit)
         return CursorPage(page.content.map { SavedCardResponse.from(it) }, page.hasMore)
     }
 
@@ -44,7 +44,10 @@ class CardApi(private val cardModule: CardModule) {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('TENANT')")
     fun deleteCard(@PathVariable id: Long) {
-        val principal = UserPrincipal.current()
-        cardModule.deleteCard(id, principal.tenantId!!)
+        val tenantId = UserPrincipal.current().requireTenantId()
+        cardModule.deleteCard(id, tenantId)
     }
+
+    private fun UserPrincipal.requireTenantId(): Long =
+        tenantId ?: error("TENANT principal missing tenantId")
 }
