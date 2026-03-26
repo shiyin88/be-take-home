@@ -86,6 +86,7 @@ class CardModuleTest {
         assertThrows<ResourceNotFoundException> {
             module.deleteCard(savedCard.id, tenant.id)
         }
+        verify(exactly = 0) { stripeClient.detachPaymentMethod(any()) }
     }
 
     @Test
