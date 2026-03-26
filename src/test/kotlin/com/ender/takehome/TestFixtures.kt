@@ -1,6 +1,7 @@
 package com.ender.takehome
 
 import com.ender.takehome.model.*
+import com.ender.takehome.model.SavedCard
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -66,5 +67,23 @@ object TestFixtures {
         amount = amount,
         dueDate = dueDate,
         status = status,
+    )
+
+    fun savedCard(
+        id: Long = 1L,
+        tenantId: Long = 1L,
+        stripePaymentMethodId: String = "pm_test_visa",
+        last4: String = "4242",
+        brand: String = "visa",
+        expMonth: Int = 12,
+        expYear: Int = 2028,
+    ) = SavedCard(
+        id = id,
+        tenantId = tenantId,
+        stripePaymentMethodId = stripePaymentMethodId,
+        last4 = last4,
+        brand = brand,
+        expMonth = expMonth,
+        expYear = expYear,
     )
 }
