@@ -25,36 +25,61 @@ class StripeClientImpl(@Value("\${stripe.api-key}") apiKey: String) : StripeClie
     }
 
     override fun createCustomer(email: String): String {
-        val params = CustomerCreateParams.builder().setEmail(email).build()
-        return Customer.create(params).id
+        return try {
+            val params = CustomerCreateParams.builder().setEmail(email).build()
+            Customer.create(params).id
+        } catch (e: StripeException) {
+            throw PaymentFailedException("Failed to create Stripe customer: ${e.message}", e)
+        }
     }
 
     override fun createSetupIntent(stripeCustomerId: String): String {
-        val params = SetupIntentCreateParams.builder()
-            .setCustomer(stripeCustomerId)
-            .addPaymentMethodType("card")
-            .build()
-        return SetupIntent.create(params).clientSecret
+        return try {
+            val params = SetupIntentCreateParams.builder()
+                .setCustomer(stripeCustomerId)
+                .addPaymentMethodType("card")
+                .build()
+            SetupIntent.create(params).clientSecret
+                ?: throw PaymentFailedException("SetupIntent created but clientSecret was null")
+        } catch (e: PaymentFailedException) {
+            throw e
+        } catch (e: StripeException) {
+            throw PaymentFailedException("Failed to create SetupIntent: ${e.message}", e)
+        }
     }
 
     override fun retrievePaymentMethodDetails(paymentMethodId: String): PaymentMethodDetails {
-        val pm = PaymentMethod.retrieve(paymentMethodId)
-        val card = pm.card ?: throw IllegalArgumentException("Payment method $paymentMethodId is not a card")
-        return PaymentMethodDetails(
-            last4 = card.last4,
-            brand = card.brand,
-            expMonth = card.expMonth.toInt(),
-            expYear = card.expYear.toInt(),
-        )
+        return try {
+            val pm = PaymentMethod.retrieve(paymentMethodId)
+            val card = pm.card ?: throw IllegalArgumentException("Payment method $paymentMethodId is not a card")
+            PaymentMethodDetails(
+                last4 = card.last4,
+                brand = card.brand,
+                expMonth = card.expMonth.toInt(),
+                expYear = card.expYear.toInt(),
+            )
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: StripeException) {
+            throw PaymentFailedException("Failed to retrieve payment method: ${e.message}", e)
+        }
     }
 
     override fun attachPaymentMethod(paymentMethodId: String, stripeCustomerId: String) {
-        val pm = PaymentMethod.retrieve(paymentMethodId)
-        pm.attach(PaymentMethodAttachParams.builder().setCustomer(stripeCustomerId).build())
+        try {
+            val pm = PaymentMethod.retrieve(paymentMethodId)
+            pm.attach(PaymentMethodAttachParams.builder().setCustomer(stripeCustomerId).build())
+        } catch (e: StripeException) {
+            throw PaymentFailedException("Failed to attach payment method: ${e.message}", e)
+        }
     }
 
     override fun detachPaymentMethod(paymentMethodId: String) {
-        PaymentMethod.retrieve(paymentMethodId).detach()
+        try {
+            PaymentMethod.retrieve(paymentMethodId).detach()
+        } catch (e: StripeException) {
+            throw PaymentFailedException("Failed to detach payment method: ${e.message}", e)
+        }
     }
 
     override fun createPaymentIntent(
