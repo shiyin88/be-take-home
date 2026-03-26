@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MYSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jooq:
+    sql-dialect: H2
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+jwt:
+  secret: test-jwt-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256
+  expiration-ms: 86400000
+
+aws:
+  region: us-east-1
+  s3:
+    bucket: test-bucket
+    endpoint: http://localhost:4566
+  sqs:
+    queue-url: http://localhost:4566/000000000000/test-queue
+    endpoint: http://localhost:4566
+
+worker:
+  enabled: false
+  poll-interval-ms: 60000
+  max-messages: 1
+  visibility-timeout-seconds: 30
