@@ -96,7 +96,7 @@ class CreditCardPaymentApiTest {
 
     @Test
     fun `GET credit-card-payments by id returns payment for tenant who owns it`() {
-        every { paymentModule.getPaymentById(1L) } returns payment
+        every { paymentModule.getPaymentById(1L, 1L) } returns payment
 
         mockMvc.get("/api/credit-card-payments/1") {
             header("Authorization", "Bearer ${tenantToken()}")
@@ -108,7 +108,7 @@ class CreditCardPaymentApiTest {
 
     @Test
     fun `GET credit-card-payments returns 404 when payment not found`() {
-        every { paymentModule.getPaymentById(999L) } throws ResourceNotFoundException("Not found")
+        every { paymentModule.getPaymentById(999L, 1L) } throws ResourceNotFoundException("Not found")
 
         mockMvc.get("/api/credit-card-payments/999") {
             header("Authorization", "Bearer ${tenantToken()}")
@@ -117,7 +117,7 @@ class CreditCardPaymentApiTest {
 
     @Test
     fun `GET credit-card-payments by rentChargeId returns paginated list`() {
-        every { paymentModule.getPaymentsByRentChargeId(5L, null, any()) } returns
+        every { paymentModule.getPaymentsByRentChargeId(5L, null, any(), 1L) } returns
             CursorPage(listOf(payment), hasMore = false)
 
         mockMvc.get("/api/credit-card-payments?rentChargeId=5") {
@@ -149,7 +149,7 @@ class CreditCardPaymentApiTest {
 
     @Test
     fun `GET credit-card-payments returns 404 when tenant tries to access another tenant's payment`() {
-        every { paymentModule.getPaymentById(99L) } throws ResourceNotFoundException("Credit card payment not found: 99")
+        every { paymentModule.getPaymentById(99L, 2L) } throws ResourceNotFoundException("Credit card payment not found: 99")
 
         mockMvc.get("/api/credit-card-payments/99") {
             header("Authorization", "Bearer ${tenantToken(tenantId = 2L)}")

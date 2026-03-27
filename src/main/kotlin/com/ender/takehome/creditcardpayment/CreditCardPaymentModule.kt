@@ -26,14 +26,33 @@ class CreditCardPaymentModule(
     @Value("\${stripe.currency:usd}") private val currency: String,
 ) {
 
-    fun getPaymentById(id: Long): CreditCardPayment =
-        dataAccess.findPaymentById(id)
+    /**
+     * Returns a payment by ID. If [tenantId] is provided, verifies the payment belongs to that tenant
+     * (via rent_charge → lease → tenant_id). Pass null for PM access (no ownership restriction).
+     */
+    fun getPaymentById(id: Long, tenantId: Long?): CreditCardPayment {
+        val payment = dataAccess.findPaymentById(id)
             ?: throw ResourceNotFoundException("Credit card payment not found: $id")
+        if (tenantId != null) verifyChargeOwnership(payment.rentChargeId, tenantId)
+        return payment
+    }
 
-    fun getPaymentsByRentChargeId(rentChargeId: Long, startAfterId: Long?, limit: Int): CursorPage<CreditCardPayment> {
+    /**
+     * Returns payments for a rent charge. If [tenantId] is provided, verifies the charge belongs to
+     * that tenant before returning results. Pass null for PM access.
+     */
+    fun getPaymentsByRentChargeId(rentChargeId: Long, startAfterId: Long?, limit: Int, tenantId: Long?): CursorPage<CreditCardPayment> {
+        if (tenantId != null) verifyChargeOwnership(rentChargeId, tenantId)
         val sanitized = CursorPage.sanitizeLimit(limit)
         val items = dataAccess.findPaymentsByRentChargeIdCursor(rentChargeId, startAfterId, sanitized + 1)
         return CursorPage.of(items, sanitized)
+    }
+
+    private fun verifyChargeOwnership(rentChargeId: Long, tenantId: Long) {
+        val charge = ledgerModule.getChargeById(rentChargeId)
+        val lease = leaseModule.getById(charge.leaseId)
+        if (lease.tenantId != tenantId)
+            throw ResourceNotFoundException("Credit card payment not found")
     }
 
     /**
