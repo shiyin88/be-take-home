@@ -4,6 +4,8 @@ import com.ender.takehome.model.*
 import com.ender.takehome.model.SavedCard
 import java.math.BigDecimal
 import java.time.LocalDate
+import com.ender.takehome.model.CreditCardPayment
+import com.ender.takehome.model.CreditCardPaymentStatus
 
 /**
  * Test data builders for creating entities in tests.
@@ -85,5 +87,23 @@ object TestFixtures {
         brand = brand,
         expMonth = expMonth,
         expYear = expYear,
+    )
+
+    fun creditCardPayment(
+        id: Long = 1L,
+        rentChargeId: Long = 1L,
+        savedCardId: Long = 1L,
+        stripePaymentIntentId: String = "pi_test_123",
+        amount: BigDecimal = BigDecimal("2000.00"),
+        status: CreditCardPaymentStatus = CreditCardPaymentStatus.INITIATED,
+        failureReason: String? = null,
+    ) = CreditCardPayment(
+        id = id,
+        rentChargeId = rentChargeId,
+        savedCardId = savedCardId,
+        stripePaymentIntentId = stripePaymentIntentId,
+        amount = amount,
+        status = status,
+        failureReason = failureReason,
     )
 }

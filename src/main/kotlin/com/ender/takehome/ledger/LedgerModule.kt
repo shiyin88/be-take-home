@@ -17,6 +17,18 @@ class LedgerModule(private val dataAccess: LedgerDataAccess) {
     fun getChargeById(id: Long): RentCharge =
         dataAccess.findChargeById(id) ?: throw ResourceNotFoundException("Rent charge not found: $id")
 
+    /** Locks the rent charge row FOR UPDATE. Call only within a @Transactional method. */
+    fun getChargeByIdForUpdate(id: Long): RentCharge =
+        dataAccess.findChargeByIdForUpdate(id)
+            ?: throw ResourceNotFoundException("Rent charge not found: $id")
+
+    @Transactional
+    fun updateChargeStatus(chargeId: Long, status: RentChargeStatus) {
+        val charge = dataAccess.findChargeById(chargeId)
+            ?: throw ResourceNotFoundException("Rent charge not found: $chargeId")
+        dataAccess.saveCharge(charge.copy(status = status))
+    }
+
     fun getChargesByLeaseId(leaseId: Long, startAfterId: Long?, limit: Int): CursorPage<RentCharge> {
         val sanitized = CursorPage.sanitizeLimit(limit)
         val items = dataAccess.findChargesByLeaseIdCursor(leaseId, startAfterId, sanitized + 1)

@@ -8,6 +8,7 @@ import io.mockk.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -69,6 +70,34 @@ class LedgerModuleTest {
         assertEquals(BigDecimal("2000.00"), result.amount)
         assertEquals(PaymentMethod.CHECK, result.paymentMethod)
         assertEquals("Check #1234", result.notes)
+        verify(exactly = 1) { dataAccess.saveCharge(match { it.status == RentChargeStatus.PAID }) }
+    }
+
+    @Test
+    fun `getChargeByIdForUpdate returns charge when found`() {
+        every { dataAccess.findChargeByIdForUpdate(rentCharge.id) } returns rentCharge
+
+        val result = module.getChargeByIdForUpdate(rentCharge.id)
+
+        assertEquals(rentCharge.id, result.id)
+    }
+
+    @Test
+    fun `getChargeByIdForUpdate throws ResourceNotFoundException when not found`() {
+        every { dataAccess.findChargeByIdForUpdate(99L) } returns null
+
+        assertThrows<com.ender.takehome.exception.ResourceNotFoundException> {
+            module.getChargeByIdForUpdate(99L)
+        }
+    }
+
+    @Test
+    fun `updateChargeStatus saves charge with new status`() {
+        every { dataAccess.findChargeById(rentCharge.id) } returns rentCharge
+        every { dataAccess.saveCharge(any()) } answers { firstArg() }
+
+        module.updateChargeStatus(rentCharge.id, RentChargeStatus.PAID)
+
         verify(exactly = 1) { dataAccess.saveCharge(match { it.status == RentChargeStatus.PAID }) }
     }
 }

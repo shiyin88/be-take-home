@@ -25,6 +25,14 @@ class LedgerDataAccess(private val dsl: DSLContext) {
             .fetchOne()
             ?.toModel()
 
+    /** SELECT ... FOR UPDATE — must be called within a @Transactional context. */
+    fun findChargeByIdForUpdate(id: Long): RentCharge? =
+        dsl.selectFrom(RENT_CHARGES)
+            .where(RENT_CHARGES.ID.eq(id))
+            .forUpdate()
+            .fetchOne()
+            ?.toModel()
+
     fun findChargesByLeaseIdCursor(leaseId: Long, startAfterId: Long?, limit: Int): List<RentCharge> =
         dsl.selectFrom(RENT_CHARGES)
             .where(RENT_CHARGES.LEASE_ID.eq(leaseId))
