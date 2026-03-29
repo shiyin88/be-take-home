@@ -8,6 +8,7 @@ import com.stripe.model.SetupIntent
 import com.stripe.param.PaymentMethodCreateParams
 import com.stripe.param.SetupIntentConfirmParams
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
@@ -43,29 +44,39 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
         tenantId = null, pmId = 1L,
     )
 
-    /**
-     * Creates a real Stripe PaymentMethod with a test card, confirms it via SetupIntent,
-     * and returns the PaymentMethod ID — simulating what the frontend would do with Stripe.js.
-     */
-    private fun createConfirmedPaymentMethod(cardNumber: String = "4242424242424242"): String {
+    @BeforeEach
+    fun setUp() {
         Stripe.apiKey = stripeApiKey
+        // Clean payment records so each test starts from a fresh PENDING charge.
+        // saved_cards is NOT cleaned — each test creates unique PMs via tok_* tokens.
+        jdbc.update("DELETE FROM credit_card_payments WHERE rent_charge_id = ?", RENT_CHARGE_ID)
+        jdbc.update("UPDATE rent_charges SET status = 'PENDING' WHERE id = ?", RENT_CHARGE_ID)
+    }
 
-        // 1. Create a PM with test card credentials
+    /**
+     * Creates a unique Stripe PaymentMethod from a named test token (no raw card numbers,
+     * no "raw card data" account permission required), confirms it via SetupIntent, and returns
+     * the PaymentMethod ID — simulating what the frontend does with Stripe.js.
+     *
+     * Each call to PaymentMethod.create() with a tok_* token produces a fresh unique pm_xxx,
+     * so there are no uniqueness collisions even when tests reuse the same token name.
+     *
+     * tok_visa → Visa 4242, always succeeds at both setup and charge.
+     */
+    private fun createConfirmedPaymentMethod(token: String = "tok_visa"): String {
+        // Create a unique PM from a named test token
         val pm = PaymentMethod.create(
             PaymentMethodCreateParams.builder()
                 .setType(PaymentMethodCreateParams.Type.CARD)
                 .setCard(
                     PaymentMethodCreateParams.CardDetails.builder()
-                        .setNumber(cardNumber)
-                        .setExpMonth(12)
-                        .setExpYear(2028)
-                        .setCvc("123")
+                        .setToken(token)
                         .build()
                 )
                 .build()
         )
 
-        // 2. Get setup intent client secret from our API
+        // Get setup intent client secret from our API
         val siResponse = mockMvc.post("/api/cards/setup-intent") {
             header("Authorization", "Bearer ${tenantToken()}")
         }.andReturn().response.contentAsString
@@ -73,7 +84,7 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
         val clientSecret = objectMapper.readTree(siResponse)["clientSecret"].asText()
         val setupIntentId = clientSecret.substringBefore("_secret_")
 
-        // 3. Confirm the setup intent with the test PM (simulates Stripe.js frontend step)
+        // Confirm the setup intent with the test PM (simulates Stripe.js frontend step)
         SetupIntent.retrieve(setupIntentId).confirm(
             SetupIntentConfirmParams.builder()
                 .setPaymentMethod(pm.id)
@@ -83,14 +94,36 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
         return pm.id
     }
 
-    private fun resetChargeToStatus(chargeId: Long, status: String) {
-        jdbc.update("UPDATE rent_charges SET status = ? WHERE id = ?", status, chargeId)
+    /**
+     * Creates a unique PM from tok_chargeCustomerFail — a Stripe test token that attaches
+     * to a customer successfully but returns card_declined when charged. Saves it directly
+     * via /api/cards (no SetupIntent needed — the setup step is not what we're testing here).
+     */
+    private fun saveDeclinedCard(): Long {
+        val pm = PaymentMethod.create(
+            PaymentMethodCreateParams.builder()
+                .setType(PaymentMethodCreateParams.Type.CARD)
+                .setCard(
+                    PaymentMethodCreateParams.CardDetails.builder()
+                        .setToken("tok_chargeCustomerFail")
+                        .build()
+                )
+                .build()
+        )
+
+        val saveResponse = mockMvc.post("/api/cards") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(mapOf("stripePaymentMethodId" to pm.id))
+            header("Authorization", "Bearer ${tenantToken()}")
+        }.andExpect {
+            status { isCreated() }
+        }.andReturn().response.contentAsString
+
+        return objectMapper.readTree(saveResponse)["id"].asLong()
     }
 
     @Test
     fun `full payment flow — save card, pay charge, verify SUCCEEDED and charge PAID`() {
-        resetChargeToStatus(RENT_CHARGE_ID, "PENDING")
-
         val pmId = createConfirmedPaymentMethod()
 
         val saveCardResponse = mockMvc.post("/api/cards") {
@@ -132,17 +165,7 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `declined card — payment recorded as FAILED, charge remains PENDING`() {
-        resetChargeToStatus(RENT_CHARGE_ID, "PENDING")
-
-        val declinedPmId = createConfirmedPaymentMethod("4000000000000002")
-
-        val saveResponse = mockMvc.post("/api/cards") {
-            contentType = MediaType.APPLICATION_JSON
-            content = objectMapper.writeValueAsString(mapOf("stripePaymentMethodId" to declinedPmId))
-            header("Authorization", "Bearer ${tenantToken()}")
-        }.andReturn().response.contentAsString
-
-        val savedCardId = objectMapper.readTree(saveResponse)["id"].asLong()
+        val savedCardId = saveDeclinedCard()
 
         mockMvc.post("/api/credit-card-payments") {
             contentType = MediaType.APPLICATION_JSON
@@ -165,7 +188,6 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `double charge prevention — second payment on same charge returns 409`() {
-        resetChargeToStatus(RENT_CHARGE_ID, "PENDING")
         val pmId = createConfirmedPaymentMethod()
         val saveResponse = mockMvc.post("/api/cards") {
             contentType = MediaType.APPLICATION_JSON
@@ -191,7 +213,6 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
 
     @Test
     fun `refund flow — SUCCEEDED payment can be refunded by PM, charge reverts to PENDING`() {
-        resetChargeToStatus(RENT_CHARGE_ID, "PENDING")
         val pmId = createConfirmedPaymentMethod()
         val saveResponse = mockMvc.post("/api/cards") {
             contentType = MediaType.APPLICATION_JSON
