@@ -93,6 +93,7 @@ class StripeClientImpl(@Value("\${stripe.api-key}") apiKey: String) : StripeClie
             .setCurrency(currency)
             .setCustomer(stripeCustomerId)
             .setPaymentMethod(paymentMethodId)
+            .addPaymentMethodType("card")
             .setConfirm(true)
             .setErrorOnRequiresAction(true)
             .build()

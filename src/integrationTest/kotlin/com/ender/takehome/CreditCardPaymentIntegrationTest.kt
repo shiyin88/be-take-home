@@ -70,7 +70,7 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
                 .setType(PaymentMethodCreateParams.Type.CARD)
                 .setCard(
                     PaymentMethodCreateParams.CardDetails.builder()
-                        .setToken(token)
+                        .putExtraParam("token", token)
                         .build()
                 )
                 .build()
@@ -105,7 +105,7 @@ class CreditCardPaymentIntegrationTest : IntegrationTestBase() {
                 .setType(PaymentMethodCreateParams.Type.CARD)
                 .setCard(
                     PaymentMethodCreateParams.CardDetails.builder()
-                        .setToken("tok_chargeCustomerFail")
+                        .putExtraParam("token", "tok_chargeCustomerFail")
                         .build()
                 )
                 .build()
